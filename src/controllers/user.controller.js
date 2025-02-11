@@ -190,11 +190,47 @@ const getUsers = async (req, res) => {
     }
 };
 
+const getBalance = async (req, res) => {
+    try {
+        // Pega o id do usuário do token (assumindo que está disponível em req.user.id)
+        const userId = req.user.id;
+
+        // Busca o usuário no banco de dados
+        const user = await prisma.user.findUnique({
+            where: { id: parseInt(userId) },
+            select: { balance: true, balance_withdrawal: true }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuário não encontrado'
+            });
+        }
+
+        // Retorna os saldos
+        return res.status(200).json({
+            success: true,
+            data: {
+                balance: user.balance,
+                balance_withdrawal: user.balance_withdrawal
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro ao buscar saldo:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Erro ao buscar saldo do usuário'
+        });
+    }
+};
 
 module.exports = {
     createUser,
     loginUser,
     updateUser,
     getUser,
-    getUsers
+    getUsers,
+    getBalance
 };
