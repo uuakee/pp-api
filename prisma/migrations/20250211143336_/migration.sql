@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `plans` ALTER COLUMN `image` DROP DEFAULT,
+    ALTER COLUMN `loops` DROP DEFAULT,
+    ALTER COLUMN `vip_needed` DROP DEFAULT;

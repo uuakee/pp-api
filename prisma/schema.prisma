@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  phone    String @unique
+  password String
+
+  balance            Int @default(0)
+  withdrawal_balance Int @default(0)
+
+  referal_code  String @unique
+  referal_count Int    @default(0)
+
+  invited_by String?
+
+  vip_type VipType?
+
+  is_admin Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Transaction {
+  id          Int             @id @default(autoincrement())
+  external_id String
+  user_id     Int
+  amount      Int
+  type        TransactionType
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
+
+  @@map("transactions")
+}
+
+model Referal {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  referal_id Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("referals")
+}
+
+model Plans {
+  id        Int     @id @default(autoincrement())
+  name      String
+  image     String
+  price     Int
+  duration  Int
+  daily_roi Decimal @db.Decimal(5, 2)
+
+  loops Int
+
+  vip_needed VipType
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("plans")
+}
+
+model Buyers {
+  id      Int @id @default(autoincrement())
+  price   Int
+  user_id Int
+  plan_id Int
+
+  buy_date DateTime @default(now())
+  end_date DateTime
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("buyers")
+}
+
+model Plataform {
+  id            Int    @id @default(autoincrement())
+  name          String
+  telegram_link String
+  whatsapp_link String
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("plataform")
+}
+
+model Vip {
+  id             Int     @id @default(autoincrement())
+  name           VipType
+  image          String
+  cpa_porcentage Int
+  min_investment Int
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("vips")
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum VipType {
+  VIP_0
+  VIP_1
+  VIP_2
+  VIP_3
+}
