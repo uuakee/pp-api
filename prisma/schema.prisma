@@ -73,6 +73,8 @@ model Plans {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  buyers Buyers[]
+
   @@map("plans")
 }
 
@@ -85,9 +87,12 @@ model Buyers {
   buy_date DateTime @default(now())
   end_date DateTime
 
+  plan Plans @relation(fields: [plan_id], references: [id])
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  @@index([plan_id])
   @@map("buyers")
 }
 
