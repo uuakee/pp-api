@@ -5,14 +5,32 @@ const prisma = new PrismaClient();
 
 const createPlan = async (req, res) => {
     try {
-        const { name, price, duration, daily_roi } = req.body;
+        const { 
+            name, 
+            price, 
+            duration, 
+            daily_roi,
+            image, 
+            loops,
+            vip_needed 
+        } = req.body;
+
+        if (!image) {
+            return res.status(400).json({ 
+                message: 'URL da imagem é obrigatória' 
+            });
+        }
 
         const plan = await prisma.plans.create({
             data: {
                 name,
-                price,
-                duration,
-                daily_roi,
+                price: parseInt(price),
+                duration: parseInt(duration),
+                daily_roi: parseFloat(daily_roi),
+                image, // URL direta da imagem
+                loops: parseInt(loops),
+                vip_needed: vip_needed || 'VIP_0',
+                status: true
             },
         });
 
@@ -26,7 +44,16 @@ const createPlan = async (req, res) => {
 const editPlan = async (req, res) => {
     try {
         const { planId } = req.params;
-        const { name, price, duration, daily_roi } = req.body;
+        const { 
+            name, 
+            price, 
+            duration, 
+            daily_roi,
+            image,
+            loops,
+            vip_needed,
+            status 
+        } = req.body;
 
         const plan = await prisma.plans.update({
             where: {
@@ -34,9 +61,13 @@ const editPlan = async (req, res) => {
             },
             data: {
                 name,
-                price,
-                duration,
-                daily_roi
+                price: parseInt(price),
+                duration: parseInt(duration),
+                daily_roi: parseFloat(daily_roi),
+                image,
+                loops: parseInt(loops),
+                vip_needed,
+                status: status === 'true'
             },
         });
 
@@ -79,5 +110,5 @@ module.exports = {
     createPlan,
     editPlan,
     deletePlan,
-    getAll
+    getAll,
 };
