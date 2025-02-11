@@ -171,6 +171,7 @@ const getUser = async (req, res) => {
     try {
         const { userId } = req.params;
 
+        // Busca o usuário
         const user = await prisma.user.findUnique({
             where: {
                 id: parseInt(userId)
@@ -181,7 +182,43 @@ const getUser = async (req, res) => {
             return res.status(404).json({ message: 'Usuário não encontrado' });
         }
 
-        res.status(200).json(user);
+        // Busca os referidos do usuário
+        const referals = await prisma.referal.findMany({
+            where: {
+                user_id: parseInt(userId)
+            }
+        });
+
+        // Pega os IDs dos referidos
+        const referalIds = referals.map(ref => ref.referal_id);
+
+        // Busca total de investimentos dos referidos
+        const investments = await prisma.buyers.count({
+            where: {
+                user_id: {
+                    in: referalIds
+                }
+            }
+        });
+
+        // Busca total de depósitos dos referidos
+        const deposits = await prisma.transaction.aggregate({
+            where: {
+                user_id: {
+                    in: referalIds
+                },
+                type: 'DEPOSIT'
+            },
+            _sum: {
+                amount: true
+            }
+        });
+
+        res.status(200).json({
+            ...user,
+            referal_investments: investments,
+            referal_deposits: deposits._sum.amount || 0
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: error.message });
