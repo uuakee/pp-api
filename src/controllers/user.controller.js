@@ -254,7 +254,7 @@ const buyPlan = async (req, res) => {
             return res.status(404).json({ message: 'Usuário não encontrado' });
         }
 
-        const plan = await prisma.plan.findUnique({
+        const plan = await prisma.plans.findUnique({
             where: { id: parseInt(planId) }
         });
 
@@ -276,7 +276,7 @@ const buyPlan = async (req, res) => {
         });
 
         // Cria o registro de investimento
-        await prisma.buyers.create({
+        const investment = await prisma.buyers.create({
             data: {
                 user_id: parseInt(userId),
                 plan_id: parseInt(planId),
