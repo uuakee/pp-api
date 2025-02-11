@@ -10,7 +10,7 @@ require('dotenv').config();
 
 const generateReferalCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = 'PZFY-';
+    let result = 'EP-';
     
     // Gera 3 caracteres antes do ponto
     for (let i = 0; i < 3; i++) {
