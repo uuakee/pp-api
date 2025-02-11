@@ -300,7 +300,40 @@ const buyPlan = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-    
+
+const getPlansFromUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await prisma.user.findUnique({
+            where: { id: parseInt(userId) }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado' });
+        }
+
+        const plans = await prisma.buyers.findMany({
+            where: {
+                user_id: parseInt(userId),
+                end_date: {
+                    gt: new Date()
+                }
+            },
+            include: {
+                plan: true
+            },
+            orderBy: {
+                buy_date: 'desc'
+            }
+        });
+
+        res.status(200).json(plans);
+    } catch (error) {
+        console.error('Erro ao buscar planos do usuário:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
 
 module.exports = {
     createUser,
@@ -309,5 +342,6 @@ module.exports = {
     getUser,
     getUsers,
     getBalance,
-    buyPlan
+    buyPlan,
+    getPlansFromUser
 };
