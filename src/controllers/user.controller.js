@@ -214,7 +214,7 @@ const getBalance = async (req, res) => {
         // Busca o usuário no banco de dados
         const user = await prisma.user.findUnique({
             where: { id: parseInt(userId) },
-            select: { balance: true, balance_withdrawal: true }
+            select: { balance: true, withdrawal_balance: true }
         });
 
         if (!user) {
@@ -229,7 +229,7 @@ const getBalance = async (req, res) => {
             success: true,
             data: {
                 balance: user.balance,
-                balance_withdrawal: user.balance_withdrawal
+                withdrawal_balance: user.withdrawal_balance
             }
         });
 
