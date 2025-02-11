@@ -192,8 +192,15 @@ const getUsers = async (req, res) => {
 
 const getBalance = async (req, res) => {
     try {
-        // Pega o id do usuário do token (assumindo que está disponível em req.user.id)
-        const userId = req.user.id;
+        // Pega o id do usuário da query
+        const userId = req.query.id;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID do usuário não fornecido'
+            });
+        }
 
         // Busca o usuário no banco de dados
         const user = await prisma.user.findUnique({
