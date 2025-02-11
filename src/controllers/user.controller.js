@@ -128,7 +128,16 @@ const loginUser = async (req, res) => {
             expiresIn: '30d',
         });
 
-        res.status(200).json({ user, token });
+        // Retorna o id separadamente junto com o token
+        res.status(200).json({
+            token,
+            id: user.id,
+            user: {
+                phone: user.phone,
+                referal_code: user.referal_code,
+                is_admin: user.is_admin
+            }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: error.message });
