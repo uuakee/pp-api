@@ -29,35 +29,75 @@ const generateReferalCode = () => {
 
 const createUser = async (req, res) => {
     try {
-        const { phone, password } = req.body;
+        const { phone, password, invited_by } = req.body;
 
         const existingUser = await prisma.user.findUnique({
-            where: {
-                phone,
-            },
+            where: { phone }
         });
 
         if (existingUser) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
+        // Se existe código de convite, verifica se é válido
+        let inviter = null;
+        if (invited_by) {
+            inviter = await prisma.user.findUnique({
+                where: { referal_code: invited_by }
+            });
+
+            if (!inviter) {
+                return res.status(400).json({ message: 'Invalid referal code' });
+            }
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Cria o usuário
         const user = await prisma.user.create({
             data: {
                 phone,
                 password: hashedPassword,
                 referal_code: generateReferalCode(),
+                invited_by: invited_by || null,
                 vip_type: 'VIP_0',
-            },
-            select: {
-                id: true,
-                phone: true,
-                referal_code: true,
             },
         });
 
-        res.status(201).json(user);
+        // Se tiver convite, cria o registro na tabela Referal e incrementa o contador
+        if (inviter) {
+            await Promise.all([
+                // Cria o registro de referral
+                prisma.referal.create({
+                    data: {
+                        user_id: inviter.id,
+                        referal_id: user.id,
+                    }
+                }),
+                // Incrementa o contador de referrals do convidador
+                prisma.user.update({
+                    where: { id: inviter.id },
+                    data: {
+                        referal_count: {
+                            increment: 1
+                        }
+                    }
+                })
+            ]);
+        }
+
+        // Retorna o usuário criado sem a senha
+        const userResponse = {
+            id: user.id,
+            phone: user.phone,
+            referal_code: user.referal_code,
+            invited_by: user.invited_by
+        };
+
+        res.status(201).json({
+            message: 'User created successfully',
+            user: userResponse
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: error.message });
