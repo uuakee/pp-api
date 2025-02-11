@@ -189,7 +189,6 @@ const getUser = async (req, res) => {
             }
         });
 
-        // Pega os IDs dos referidos
         const referalIds = referals.map(ref => ref.referal_id);
 
         // Busca total de investimentos dos referidos
@@ -214,10 +213,34 @@ const getUser = async (req, res) => {
             }
         });
 
+        // Calcula o bônus baseado no VIP
+        const totalDeposits = deposits._sum.amount || 0;
+        let bonusPercentage = 0;
+
+        switch (user.vip_type) {
+            case 'VIP_0':
+                bonusPercentage = 0.20; // 20%
+                break;
+            case 'VIP_1':
+                bonusPercentage = 0.15; // 15%
+                break;
+            case 'VIP_2':
+                bonusPercentage = 0.02; // 2%
+                break;
+            case 'VIP_3':
+                bonusPercentage = 0.01; // 1%
+                break;
+            default:
+                bonusPercentage = 0;
+        }
+
+        const referalBonus = Math.floor(totalDeposits * bonusPercentage);
+
         res.status(200).json({
             ...user,
             referal_investments: investments,
-            referal_deposits: deposits._sum.amount || 0
+            referal_deposits: totalDeposits,
+            referal_bonus: referalBonus
         });
     } catch (error) {
         console.error(error);
