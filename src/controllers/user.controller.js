@@ -242,11 +242,72 @@ const getBalance = async (req, res) => {
     }
 };
 
+const buyPlan = async (req, res) => {
+    try {
+        const { userId, planId } = req.body;
+
+        const user = await prisma.user.findUnique({
+            where: { id: parseInt(userId) }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado' });
+        }
+
+        const plan = await prisma.plan.findUnique({
+            where: { id: parseInt(planId) }
+        });
+
+        if (!plan) {
+            return res.status(404).json({ message: 'Plano não encontrado' });
+        }
+
+        // Verifica se o usuário tem saldo suficiente
+        if (user.balance < plan.price) {
+            return res.status(400).json({ message: 'Saldo insuficiente' });
+        }
+
+        // Atualiza o saldo do usuário
+        await prisma.user.update({
+            where: { id: parseInt(userId) },
+            data: {
+                balance: user.balance - plan.price
+            }
+        });
+
+        // Cria o registro de investimento
+        await prisma.buyers.create({
+            data: {
+                user_id: parseInt(userId),
+                plan_id: parseInt(planId),
+                price: plan.price,
+                end_date: new Date(Date.now() + plan.duration * 24 * 60 * 60 * 1000)
+            }
+        });
+
+        res.status(200).json({
+            message: 'Plano comprado com sucesso',
+            investment: {
+                id: investment.id,
+                user_id: investment.user_id,
+                plan_id: investment.plan_id,
+                price: investment.price,
+                end_date: investment.end_date
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao comprar plano:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+    
+
 module.exports = {
     createUser,
     loginUser,
     updateUser,
     getUser,
     getUsers,
-    getBalance
+    getBalance,
+    buyPlan
 };
