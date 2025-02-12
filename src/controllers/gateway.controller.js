@@ -10,8 +10,38 @@ class GatewayController {
         if (!process.env.AXIEPAY_SECRET_KEY) {
             throw new Error('AXIEPAY_SECRET_KEY não configurada')
         }
-        this.baseUrl = 'https://api.axiepay.com.br/api'
+        this.baseUrl = 'https://api.axiepaybr.com/v1'
         this.authToken = Buffer.from(`${process.env.AXIEPAY_SECRET_KEY}:x`).toString('base64')
+    }
+
+    // Função para gerar CPF válido
+    #generateCPF() {
+        const generateDigit = (digits) => {
+            let sum = 0
+            let weight = digits.length + 1
+
+            for(let i = 0; i < digits.length; i++) {
+                sum += digits[i] * weight
+                weight--
+            }
+
+            const digit = 11 - (sum % 11)
+            return digit > 9 ? 0 : digit
+        }
+
+        // Gera os 9 primeiros dígitos
+        const numbers = []
+        for(let i = 0; i < 9; i++) {
+            numbers.push(Math.floor(Math.random() * 10))
+        }
+
+        // Gera os dígitos verificadores
+        const digit1 = generateDigit(numbers)
+        numbers.push(digit1)
+        const digit2 = generateDigit(numbers)
+        numbers.push(digit2)
+
+        return numbers.join('')
     }
 
     async createPayment(req, res) {
@@ -33,20 +63,41 @@ class GatewayController {
                 return res.status(400).json({ error: 'Valor inválido' })
             }
 
-            // Payload atualizado conforme documentação
+            // Gera CPF válido
+            const cpf = this.#generateCPF()
+
             const paymentData = {
                 value: amountNumber,
                 external_reference: `DEP-EP-${Date.now()}`,
                 notification_url: `${process.env.APP_URL}/api/gateway/callback`,
                 customer: {
+                    name: `User ${userId}`,
                     phone_number: user.phone.replace(/\D/g, ''),
-                    name: `User ${userId}`
+                    email: `user${userId}@example.com`,
+                    document: cpf,
+                    document_type: 'CPF'  // Especifica o tipo do documento
+                },
+                billing: {
+                    street: 'Rua Exemplo',
+                    number: '123',
+                    district: 'Centro',
+                    city: 'São Paulo',
+                    state: 'SP',
+                    postal_code: '01001000'
                 },
                 type: "PIX",
-                currency: "BRL"  // Adicionando moeda
+                currency: "BRL",
+                description: `Depósito - User ${userId}`,
+                items: [
+                    {
+                        name: 'Créditos',
+                        value: amountNumber,
+                        quantity: 1
+                    }
+                ]
             }
 
-            console.log('Enviando requisição para:', `${this.baseUrl}/v1/transactions`)
+            console.log('Enviando requisição para:', `${this.baseUrl}/transactions`)
             console.log('Payload:', paymentData)
 
             const config = {
@@ -55,19 +106,18 @@ class GatewayController {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                timeout: 10000 // 10 segundos de timeout
+                timeout: 10000
             }
 
             try {
                 const response = await axios.post(
-                    `${this.baseUrl}/v1/transactions`, 
+                    `${this.baseUrl}/transactions`, 
                     paymentData,
                     config
                 )
 
                 console.log('Resposta da API:', response.data)
 
-                // Registra a transação no banco
                 await prisma.transaction.create({
                     data: {
                         external_id: paymentData.external_reference,
