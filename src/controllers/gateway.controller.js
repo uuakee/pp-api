@@ -194,6 +194,7 @@ class GatewayController {
             }
 
             return res.json({ success: true })
+            console.log('Callback recebido:', req.body)
 
         } catch (error) {
             console.error('Erro no callback:', error)
