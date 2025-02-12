@@ -37,9 +37,21 @@ class GatewayController {
 
             const url = `${this.baseUrl}${endpoint}`
             console.log('Fazendo requisição para:', url)
+            console.log('Headers:', options.headers)
+            console.log('Body:', options.body)
             
             const response = await fetch(url, options)
-            return await response.json()
+            
+            // Adiciona logs para debug
+            console.log('Status:', response.status)
+            const responseText = await response.text()
+            console.log('Response:', responseText)
+
+            try {
+                return JSON.parse(responseText)
+            } catch (error) {
+                throw new Error(`Resposta inválida da API: ${responseText}`)
+            }
 
         } catch (error) {
             console.error('Erro na requisição:', error)
@@ -67,20 +79,23 @@ class GatewayController {
 
             // Cria a transação no gateway
             const paymentData = {
-                amount: amount,
-                external_id: `DEP-${userId}-${Date.now()}`,
-                callback_url: `${process.env.APP_URL}/api/gateway/callback`,
+                value: amount,                   // Valor em centavos
+                external_reference: `DEP-${userId}-${Date.now()}`,  // ID externo
+                notification_url: `${process.env.APP_URL}/api/gateway/callback`, // URL de callback
                 customer: {
-                    phone: user.phone
-                }
+                    phone_number: user.phone.replace(/\D/g, '')  // Remove não-dígitos do telefone
+                },
+                type: "PIX"  // Tipo de pagamento
             }
+
+            console.log('Payment Data:', paymentData)
 
             const payment = await this.#makeRequest('/v1/transactions', 'POST', paymentData)
 
             // Registra a transação no banco
             await prisma.transaction.create({
                 data: {
-                    external_id: paymentData.external_id,
+                    external_id: paymentData.external_reference,
                     user_id: userId,
                     amount: amount,
                     type: 'DEPOSIT'
