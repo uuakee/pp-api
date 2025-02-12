@@ -395,6 +395,43 @@ const getPlansFromUser = async (req, res) => {
     }
 };
 
+const getDeposits = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const deposits = await prisma.transaction.findMany({
+            where: {
+                user_id: parseInt(userId),
+                type: 'DEPOSIT'
+            }
+        });
+
+        res.status(200).json(deposits);
+    } catch (error) {
+        console.error('Erro ao buscar depósitos do usuário:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const getWithdrawals = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const withdrawals = await prisma.transaction.findMany({
+            where: {
+                user_id: parseInt(userId),
+                type: 'WITHDRAW'
+            }
+        });
+
+        res.status(200).json(withdrawals);
+    } catch (error) {
+        console.error('Erro ao buscar saques do usuário:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 module.exports = {
     createUser,
     loginUser,
@@ -403,5 +440,7 @@ module.exports = {
     getUsers,
     getBalance,
     buyPlan,
-    getPlansFromUser
+    getPlansFromUser,
+    getDeposits,
+    getWithdrawals
 };
