@@ -133,14 +133,19 @@ class GatewayController {
 
                 await prisma.transaction.create({
                     data: {
-                        external_id: paymentData.external_reference,
+                        external_id: paymentData.externalRef,
                         user_id: userId,
                         amount: amountNumber,
                         type: 'DEPOSIT'
                     }
                 })
 
-                return res.json(response.data)
+                return res.json({
+                    qrcode: response.data.pix.qrcode,
+                    expirationDate: response.data.pix.expirationDate,
+                    amount: response.data.amount,
+                    status: response.data.status
+                })
 
             } catch (axiosError) {
                 if (axiosError.code === 'ECONNREFUSED' || axiosError.code === 'ENOTFOUND') {
@@ -169,17 +174,17 @@ class GatewayController {
 
     async handleCallback(req, res) {
         try {
-            const { external_reference, status } = req.body
+            const { externalRef, status } = req.body
 
             const transaction = await prisma.transaction.findFirst({
-                where: { external_id: external_reference }
+                where: { external_id: externalRef }
             })
 
             if (!transaction) {
                 return res.status(404).json({ error: 'Transação não encontrada' })
             }
 
-            if (status === 'approved') {
+            if (status === 'paid') {
                 await prisma.user.update({
                     where: { id: transaction.user_id },
                     data: {
