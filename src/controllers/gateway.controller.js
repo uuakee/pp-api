@@ -46,39 +46,52 @@ class GatewayController {
 
     async createWithdraw(req, res) {
         try {
-            const { amount, userId, pixKey, pixKeyType } = req.body
+            const { amount, userId, pixKey, pixKeyType } = req.body;
 
+            // Validação dos campos obrigatórios
+            if (!amount || !userId || !pixKey || !pixKeyType) {
+                return res.status(400).json({ 
+                    error: 'Dados inválidos',
+                    details: 'Todos os campos são obrigatórios'
+                });
+            }
+
+            // Busca o usuário e verifica saldo
             const user = await prisma.user.findUnique({
                 where: { id: userId },
-                select: { id: true, phone: true }
-            })
+                select: { id: true, balance: true }
+            });
 
             if (!user) {
-                return res.status(404).json({ error: 'Usuário não encontrado' })
+                return res.status(404).json({ 
+                    error: 'Usuário não encontrado',
+                    details: 'Usuário não encontrado na base de dados'
+                });
             }
 
-            const amountNumber = parseInt(amount)
-
-            if (isNaN(amountNumber)) {
-                return res.status(400).json({ error: 'Valor inválido' })
+            // Verifica se tem saldo suficiente
+            if (user.balance < amount) {
+                return res.status(400).json({ 
+                    error: 'Saldo insuficiente',
+                    details: 'Você não possui saldo suficiente para este saque'
+                });
             }
 
-            if (amountNumber <= 0) {
-                return res.status(400).json({ error: 'Valor inválido' })
+            // Validação do tipo de chave PIX
+            if (!['cpf', 'email', 'phone'].includes(pixKeyType)) {
+                return res.status(400).json({ 
+                    error: 'Tipo de chave PIX inválido',
+                    details: 'O tipo de chave PIX deve ser cpf, email ou phone'
+                });
             }
-
-            if (amountNumber > user.balance) {
-                return res.status(400).json({ error: 'Saldo insuficiente' })
-            }
-
 
             const paymentData = {
-                amount: amountNumber,
+                amount,
                 postbackUrl: `${process.env.APP_URL}/api/gateway/callback`,
                 netAmount: false,
-                pixKey: pixKey,
-                pixKeyType: pixKeyType
-            }
+                pixKey,
+                pixKeyType
+            };
 
             const generateExternalRef = () => {
                 return `WITHDRAW-EP-${Date.now()}`
@@ -94,7 +107,7 @@ class GatewayController {
             }
 
             try {
-                console.log('Tentando conectar à API...')
+                console.log('Tentando conectar à API...');
                 const response = await axios.post(
                     `${this.baseUrl}/transfers`, 
                     paymentData,
@@ -102,53 +115,54 @@ class GatewayController {
                         ...config,
                         validateStatus: false
                     }
-                )
+                );
 
-                console.log('Status da resposta:', response.status)
-                console.log('Resposta da API:', response.data)
+                console.log('Status da resposta:', response.status);
+                console.log('Resposta da API:', response.data);
 
                 if (response.status >= 400) {
-                    throw new Error(`API retornou erro ${response.status}: ${JSON.stringify(response.data)}`)
+                    throw new Error(`API retornou erro ${response.status}: ${JSON.stringify(response.data)}`);
                 }
 
-                await prisma.transaction.create({
+                // Cria a transação
+                const transaction = await prisma.transaction.create({
                     data: {
                         external_id: generateExternalRef(),
                         user_id: userId,
-                        amount: amountNumber,
+                        amount,
                         type: 'WITHDRAWAL',
                         status: "pending"
                     }
-                })
+                });
+
+                // Deduz o valor do saldo do usuário
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        balance: {
+                            decrement: amount
+                        }
+                    }
+                });
 
                 return res.json({
-                    externalRef: generateExternalRef(),
+                    externalRef: transaction.external_id,
                     status: "pending"
-                })
-            
+                });
+
             } catch (axiosError) {
-                if (axiosError.code === 'ECONNREFUSED' || axiosError.code === 'ENOTFOUND') {
-                    console.error('Não foi possível conectar ao servidor da API')
-                    throw new Error('Serviço de pagamento temporariamente indisponível')
-                }
-                
-                console.error('Erro detalhado:', {
-                    code: axiosError.code,
-                    message: axiosError.message,
-                    response: axiosError.response?.data,
-                    status: axiosError.response?.status
-                })
-                
-                throw new Error(axiosError.response?.data?.message || 'Erro ao processar saque')
+                console.error('Erro na API:', axiosError);
+                throw new Error(axiosError.response?.data?.message || 'Erro na comunicação com o serviço de pagamento');
             }
+
         } catch (error) {
-            console.error('Erro ao criar saque:', error)
+            console.error('Erro ao criar saque:', error);
             return res.status(500).json({ 
                 error: 'Erro ao processar saque',
                 details: error.message
-            })
+            });
         }
-    }   
+    }
 
     async createPayment(req, res) {
         try {
