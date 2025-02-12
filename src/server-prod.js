@@ -11,6 +11,7 @@ app.use(express.json());
 
 app.use('/api/user', userRoutes);
 app.use('/api/plan', planRoutes);
+app.use('/api/gateway', gatewayRoutes);
 
 const PORT = 1994;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
