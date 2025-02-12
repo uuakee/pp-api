@@ -10,8 +10,9 @@ ENV DATABASE_URL=${DATABASE_URL}
 COPY package*.json ./
 COPY prisma ./prisma/
 
+
 # Instalar dependências
-RUN npm ci --only=production
+RUN npm install
 
 # Gerar cliente Prisma
 RUN npx prisma generate
