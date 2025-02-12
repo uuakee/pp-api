@@ -174,7 +174,6 @@ class GatewayController {
 
     async handleCallback(req, res) {
         try {
-            // Formato do postback conforme documentação
             const { type, data } = req.body
 
             if (type !== 'transaction') {
@@ -195,21 +194,24 @@ class GatewayController {
             switch (data.status) {
                 case 'paid':
                 case 'approved':
+                    // Converte o valor de centavos para reais
+                    const realAmount = Math.floor(transaction.amount / 100)
+                    
                     await prisma.$transaction([
                         // Atualiza status da transação
                         prisma.transaction.update({
                             where: { id: transaction.id },
                             data: { status: 'approved' }
                         }),
-                        // Adiciona saldo ao usuário
+                        // Adiciona saldo ao usuário (valor em reais)
                         prisma.user.update({
                             where: { id: transaction.user_id },
                             data: {
-                                balance: { increment: transaction.amount }
+                                balance: { increment: realAmount }
                             }
                         })
                     ])
-                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: ${transaction.amount}`)
+                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: R$ ${realAmount.toFixed(2)} (${transaction.amount} centavos)`)
                     break
 
                 case 'refused':
