@@ -3,6 +3,7 @@ const cors = require('cors');
 
 const userRoutes = require('./routes/user.routes');
 const planRoutes = require('./routes/plan.routes');
+const gatewayRoutes = require('./routes/gateway.routes');
 
 const app = express();
 
