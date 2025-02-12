@@ -7,28 +7,44 @@ const { Buffer } = require('buffer')
 
 class GatewayController {
     constructor() {
-        this.baseUrl = process.env.AXIEPAY_URL
+        if (!process.env.AXIEPAY_URL) {
+            throw new Error('AXIEPAY_URL não configurada')
+        }
+        if (!process.env.AXIEPAY_SECRET_KEY) {
+            throw new Error('AXIEPAY_SECRET_KEY não configurada')
+        }
+
+        this.baseUrl = process.env.AXIEPAY_URL.replace(/\/$/, '') // Remove trailing slash
         this.secretKey = process.env.AXIEPAY_SECRET_KEY
     }
 
     // Método auxiliar para fazer requisições autenticadas
     async #makeRequest(endpoint, method = 'GET', body = null) {
-        const auth = Buffer.from(`${this.secretKey}:x`).toString('base64')
-        
-        const options = {
-            method,
-            headers: {
-                'Authorization': `Basic ${auth}`,
-                'Content-Type': 'application/json'
+        try {
+            const auth = Buffer.from(`${this.secretKey}:x`).toString('base64')
+            
+            const options = {
+                method,
+                headers: {
+                    'Authorization': `Basic ${auth}`,
+                    'Content-Type': 'application/json'
+                }
             }
-        }
 
-        if (body) {
-            options.body = JSON.stringify(body)
-        }
+            if (body) {
+                options.body = JSON.stringify(body)
+            }
 
-        const response = await fetch(`${this.baseUrl}${endpoint}`, options)
-        return await response.json()
+            const url = `${this.baseUrl}${endpoint}`
+            console.log('Fazendo requisição para:', url)
+            
+            const response = await fetch(url, options)
+            return await response.json()
+
+        } catch (error) {
+            console.error('Erro na requisição:', error)
+            throw new Error(`Erro na requisição: ${error.message}`)
+        }
     }
 
     // Criar uma nova transação de depósito
