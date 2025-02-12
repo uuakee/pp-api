@@ -14,8 +14,9 @@ class GatewayController {
             throw new Error('AXIEPAY_SECRET_KEY não configurada')
         }
 
-        this.baseUrl = process.env.AXIEPAY_URL.replace(/\/$/, '') // Remove trailing slash
+        this.baseUrl = process.env.AXIEPAY_URL.replace(/\/$/, '')
         this.secretKey = process.env.AXIEPAY_SECRET_KEY
+        this.timeout = 30000 // 30 segundos de timeout
     }
 
     // Método auxiliar para fazer requisições autenticadas
@@ -28,7 +29,9 @@ class GatewayController {
                 headers: {
                     'Authorization': `Basic ${auth}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                // Adiciona timeout
+                signal: AbortSignal.timeout(this.timeout)
             }
 
             if (body) {
@@ -40,17 +43,21 @@ class GatewayController {
             console.log('Headers:', options.headers)
             console.log('Body:', options.body)
             
-            const response = await fetch(url, options)
-            
-            // Adiciona logs para debug
-            console.log('Status:', response.status)
-            const responseText = await response.text()
-            console.log('Response:', responseText)
-
             try {
+                const response = await fetch(url, options)
+                console.log('Status:', response.status)
+                const responseText = await response.text()
+                console.log('Response:', responseText)
+
                 return JSON.parse(responseText)
             } catch (error) {
-                throw new Error(`Resposta inválida da API: ${responseText}`)
+                if (error.name === 'TimeoutError' || error.code === 'UND_ERR_CONNECT_TIMEOUT') {
+                    throw new Error('Timeout ao conectar com o gateway de pagamento')
+                }
+                if (error.name === 'AbortError') {
+                    throw new Error('Requisição cancelada por timeout')
+                }
+                throw error
             }
 
         } catch (error) {
@@ -75,6 +82,11 @@ class GatewayController {
 
             if (!user) {
                 throw new Error('Usuário não encontrado')
+            }
+
+            // Verifica se a URL de callback está configurada
+            if (!process.env.APP_URL) {
+                throw new Error('APP_URL não configurada')
             }
 
             // Cria a transação no gateway
@@ -106,7 +118,10 @@ class GatewayController {
 
         } catch (error) {
             console.error('Erro ao criar depósito:', error)
-            throw new Error('Falha ao processar pagamento')
+            if (error.message.includes('timeout')) {
+                throw new Error('Gateway de pagamento indisponível no momento')
+            }
+            throw new Error('Falha ao processar pagamento: ' + error.message)
         }
     }
 
