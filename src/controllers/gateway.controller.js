@@ -174,30 +174,75 @@ class GatewayController {
 
     async handleCallback(req, res) {
         try {
-            const { externalRef, status } = req.body
+            // Formato do postback conforme documentação
+            const { type, data } = req.body
+
+            if (type !== 'transaction') {
+                return res.json({ received: true })
+            }
 
             const transaction = await prisma.transaction.findFirst({
-                where: { external_id: externalRef }
+                where: { external_id: data.externalRef }
             })
 
             if (!transaction) {
+                console.error('Transação não encontrada:', data.externalRef)
                 return res.status(404).json({ error: 'Transação não encontrada' })
             }
 
-            if (status === 'paid') {
-                await prisma.user.update({
-                    where: { id: transaction.user_id },
-                    data: {
-                        balance: { increment: transaction.amount }
-                    }
-                })
+            console.log(`Postback recebido - Status: ${data.status}, Transação: ${transaction.id}`)
+
+            switch (data.status) {
+                case 'paid':
+                case 'approved':
+                    await prisma.$transaction([
+                        // Atualiza status da transação
+                        prisma.transaction.update({
+                            where: { id: transaction.id },
+                            data: { status: 'approved' }
+                        }),
+                        // Adiciona saldo ao usuário
+                        prisma.user.update({
+                            where: { id: transaction.user_id },
+                            data: {
+                                balance: { increment: transaction.amount }
+                            }
+                        })
+                    ])
+                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: ${transaction.amount}`)
+                    break
+
+                case 'refused':
+                case 'cancelled':
+                case 'chargeback':
+                    await prisma.transaction.update({
+                        where: { id: transaction.id },
+                        data: { status: 'refused' }
+                    })
+                    console.log(`Pagamento recusado - Usuário: ${transaction.user_id}, Motivo: ${data.status}`)
+                    break
+
+                case 'pending':
+                    await prisma.transaction.update({
+                        where: { id: transaction.id },
+                        data: { status: 'pending' }
+                    })
+                    console.log(`Pagamento pendente - Usuário: ${transaction.user_id}`)
+                    break
+
+                case 'waiting_payment':
+                    // Mantém o status atual
+                    console.log(`Aguardando pagamento - Usuário: ${transaction.user_id}`)
+                    break
+
+                default:
+                    console.log(`Status não tratado: ${data.status}`)
             }
 
-            return res.json({ success: true })
-            console.log('Callback recebido:', req.body)
+            return res.json({ received: true })
 
         } catch (error) {
-            console.error('Erro no callback:', error)
+            console.error('Erro ao processar callback:', error)
             return res.status(500).json({ error: 'Erro ao processar callback' })
         }
     }

@@ -37,13 +37,14 @@ model User {
 }
 
 model Transaction {
-  id          Int             @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   external_id String
   user_id     Int
   amount      Int
+  status      TransactionStatus @default(waiting_payment)
   type        TransactionType
-  created_at  DateTime        @default(now())
-  updated_at  DateTime        @updatedAt
+  created_at  DateTime          @default(now())
+  updated_at  DateTime          @updatedAt
 
   @@map("transactions")
 }
@@ -124,6 +125,13 @@ model Vip {
 enum TransactionType {
   DEPOSIT
   WITHDRAWAL
+}
+
+enum TransactionStatus {
+  waiting_payment
+  pending
+  approved
+  refused
 }
 
 enum VipType {
