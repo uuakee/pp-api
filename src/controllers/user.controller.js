@@ -420,7 +420,7 @@ const getWithdrawals = async (req, res) => {
         const withdrawals = await prisma.transaction.findMany({
             where: {
                 user_id: parseInt(userId),
-                type: 'WITHDRAW'
+                type: 'WITHDRAWAL' 
             }
         });
 

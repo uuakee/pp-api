@@ -116,7 +116,7 @@ class GatewayController {
                         external_id: generateExternalRef(),
                         user_id: userId,
                         amount: amountNumber,
-                        type: 'WITHDRAW',
+                        type: 'WITHDRAWAL',
                         status: "pending"
                     }
                 })
