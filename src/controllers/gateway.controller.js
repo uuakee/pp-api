@@ -110,13 +110,22 @@ class GatewayController {
             }
 
             try {
+                console.log('Tentando conectar à API...')
                 const response = await axios.post(
                     `${this.baseUrl}/transactions`, 
                     paymentData,
-                    config
+                    {
+                        ...config,
+                        validateStatus: false // Para ver todos os status de resposta
+                    }
                 )
 
+                console.log('Status da resposta:', response.status)
                 console.log('Resposta da API:', response.data)
+
+                if (response.status >= 400) {
+                    throw new Error(`API retornou erro ${response.status}: ${JSON.stringify(response.data)}`)
+                }
 
                 await prisma.transaction.create({
                     data: {
@@ -130,12 +139,19 @@ class GatewayController {
                 return res.json(response.data)
 
             } catch (axiosError) {
-                console.error('Erro na chamada da API:', {
-                    status: axiosError.response?.status,
-                    data: axiosError.response?.data,
-                    headers: axiosError.response?.headers
+                if (axiosError.code === 'ECONNREFUSED' || axiosError.code === 'ENOTFOUND') {
+                    console.error('Não foi possível conectar ao servidor da API')
+                    throw new Error('Serviço de pagamento temporariamente indisponível')
+                }
+                
+                console.error('Erro detalhado:', {
+                    code: axiosError.code,
+                    message: axiosError.message,
+                    response: axiosError.response?.data,
+                    status: axiosError.response?.status
                 })
-                throw new Error(`Erro na API: ${axiosError.response?.data?.message || axiosError.message}`)
+                
+                throw new Error(axiosError.response?.data?.message || 'Erro ao processar pagamento')
             }
 
         } catch (error) {
