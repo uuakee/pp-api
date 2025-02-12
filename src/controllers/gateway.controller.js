@@ -314,60 +314,59 @@ class GatewayController {
             switch (data.status) {
                 case 'paid':
                 case 'approved':
-                    // Converte o valor de centavos para reais
                     const realAmount = Math.floor(transaction.amount / 100)
                     
-                    // Busca o usuário e seu indicador
-                    const user = await prisma.user.findUnique({
-                        where: { id: transaction.user_id },
-                        select: { 
-                            id: true,
-                            invited_by: true
-                        }
-                    });
-
-                    if (user.invited_by) {
-                        // Busca o VIP do indicador
-                        const inviter = await prisma.user.findUnique({
-                            where: { referal_code: user.invited_by },
-                            select: {
+                    try {
+                        // Tenta processar a comissão do indicador
+                        const user = await prisma.user.findUnique({
+                            where: { id: transaction.user_id },
+                            select: { 
                                 id: true,
-                                vip_type: true
+                                invited_by: true
                             }
                         });
 
-                        if (inviter && inviter.vip_type) {
-                            // Busca a porcentagem de CPA do VIP
-                            const vip = await prisma.vip.findFirst({
-                                where: { name: inviter.vip_type }
+                        if (user?.invited_by) {
+                            const inviter = await prisma.user.findUnique({
+                                where: { referal_code: user.invited_by },
+                                select: {
+                                    id: true,
+                                    vip_type: true
+                                }
                             });
 
-                            if (vip) {
-                                // Calcula a comissão (realAmount * porcentagem / 100)
-                                const commission = Math.floor(realAmount * vip.cpa_porcentage / 100);
-                                
-                                // Atualiza o saldo do indicador
-                                await prisma.user.update({
-                                    where: { id: inviter.id },
-                                    data: {
-                                        balance: {
-                                            increment: commission
-                                        }
-                                    }
+                            if (inviter?.vip_type) {
+                                const vip = await prisma.vip.findFirst({
+                                    where: { name: inviter.vip_type }
                                 });
 
-                                console.log(`Comissão paga: R$ ${commission} para usuário ${inviter.id} (${vip.cpa_porcentage}% de R$ ${realAmount})`);
+                                if (vip) {
+                                    const commission = Math.floor(realAmount * vip.cpa_porcentage / 100);
+                                    
+                                    await prisma.user.update({
+                                        where: { id: inviter.id },
+                                        data: {
+                                            balance: {
+                                                increment: commission
+                                            }
+                                        }
+                                    });
+
+                                    console.log(`Comissão paga: R$ ${commission} para usuário ${inviter.id} (${vip.cpa_porcentage}% de R$ ${realAmount})`);
+                                }
                             }
                         }
+                    } catch (commissionError) {
+                        // Se houver erro no processo de comissão, apenas loga e continua
+                        console.error('Erro ao processar comissão:', commissionError);
                     }
 
+                    // Sempre executa a atualização do saldo, independente da comissão
                     await prisma.$transaction([
-                        // Atualiza status da transação
                         prisma.transaction.update({
                             where: { id: transaction.id },
                             data: { status: 'approved' }
                         }),
-                        // Adiciona saldo ao usuário (valor em reais)
                         prisma.user.update({
                             where: { id: transaction.user_id },
                             data: {
@@ -376,7 +375,7 @@ class GatewayController {
                         })
                     ]);
 
-                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: R$ ${realAmount.toFixed(2)} (${transaction.amount} centavos)`);
+                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: R$ ${realAmount.toFixed(2)}`);
                     break;
 
                 case 'refused':
