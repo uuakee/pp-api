@@ -313,17 +313,54 @@ class GatewayController {
 
             switch (data.status) {
                 case 'paid':
-                    await prisma.transaction.update({
-                        where: { id: transaction.id },
-                        data: { status: 'approved' }
-                    })
-                    console.log(`Saque aprovado - Usuário: ${transaction.user_id}`)
-                    break
-                    
                 case 'approved':
                     // Converte o valor de centavos para reais
                     const realAmount = Math.floor(transaction.amount / 100)
                     
+                    // Busca o usuário e seu indicador
+                    const user = await prisma.user.findUnique({
+                        where: { id: transaction.user_id },
+                        select: { 
+                            id: true,
+                            invited_by: true
+                        }
+                    });
+
+                    if (user.invited_by) {
+                        // Busca o VIP do indicador
+                        const inviter = await prisma.user.findUnique({
+                            where: { referal_code: user.invited_by },
+                            select: {
+                                id: true,
+                                vip_type: true
+                            }
+                        });
+
+                        if (inviter && inviter.vip_type) {
+                            // Busca a porcentagem de CPA do VIP
+                            const vip = await prisma.vip.findFirst({
+                                where: { name: inviter.vip_type }
+                            });
+
+                            if (vip) {
+                                // Calcula a comissão (realAmount * porcentagem / 100)
+                                const commission = Math.floor(realAmount * vip.cpa_porcentage / 100);
+                                
+                                // Atualiza o saldo do indicador
+                                await prisma.user.update({
+                                    where: { id: inviter.id },
+                                    data: {
+                                        balance: {
+                                            increment: commission
+                                        }
+                                    }
+                                });
+
+                                console.log(`Comissão paga: R$ ${commission} para usuário ${inviter.id} (${vip.cpa_porcentage}% de R$ ${realAmount})`);
+                            }
+                        }
+                    }
+
                     await prisma.$transaction([
                         // Atualiza status da transação
                         prisma.transaction.update({
@@ -337,9 +374,10 @@ class GatewayController {
                                 balance: { increment: realAmount }
                             }
                         })
-                    ])
-                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: R$ ${realAmount.toFixed(2)} (${transaction.amount} centavos)`)
-                    break
+                    ]);
+
+                    console.log(`Pagamento aprovado - Usuário: ${transaction.user_id}, Valor: R$ ${realAmount.toFixed(2)} (${transaction.amount} centavos)`);
+                    break;
 
                 case 'refused':
                 case 'cancelled':
