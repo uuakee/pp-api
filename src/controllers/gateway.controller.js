@@ -10,7 +10,7 @@ class GatewayController {
         if (!process.env.AXIEPAY_SECRET_KEY) {
             throw new Error('AXIEPAY_SECRET_KEY não configurada')
         }
-        // Cria o token de autenticação conforme documentação
+        this.baseUrl = 'https://api.axiepay.com.br/api'
         this.authToken = Buffer.from(`${process.env.AXIEPAY_SECRET_KEY}:x`).toString('base64')
     }
 
@@ -27,57 +27,72 @@ class GatewayController {
                 return res.status(404).json({ error: 'Usuário não encontrado' })
             }
 
-            // Converte amount para número
             const amountNumber = parseInt(amount)
             
             if (isNaN(amountNumber)) {
                 return res.status(400).json({ error: 'Valor inválido' })
             }
 
-            // Monta o payload conforme documentação
+            // Payload atualizado conforme documentação
             const paymentData = {
-                value: amountNumber, // Valor em centavos já convertido para número
+                value: amountNumber,
                 external_reference: `DEP-EP-${Date.now()}`,
                 notification_url: `${process.env.APP_URL}/api/gateway/callback`,
                 customer: {
                     phone_number: user.phone.replace(/\D/g, ''),
                     name: `User ${userId}`
                 },
-                type: "PIX"
+                type: "PIX",
+                currency: "BRL"  // Adicionando moeda
             }
 
-            // Configuração do axios conforme documentação
+            console.log('Enviando requisição para:', `${this.baseUrl}/v1/transactions`)
+            console.log('Payload:', paymentData)
+
             const config = {
                 headers: {
                     'Authorization': `Basic ${this.authToken}`,
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                timeout: 10000 // 10 segundos de timeout
             }
 
-            // Faz a requisição para criar a transação
-            const response = await axios.post(
-                `${process.env.AXIEPAY_URL}/v1/transactions`, 
-                paymentData,
-                config
-            )
+            try {
+                const response = await axios.post(
+                    `${this.baseUrl}/v1/transactions`, 
+                    paymentData,
+                    config
+                )
 
-            // Registra a transação no banco com o amount como número
-            await prisma.transaction.create({
-                data: {
-                    external_id: paymentData.external_reference,
-                    user_id: userId,
-                    amount: amountNumber, // Agora é um número
-                    type: 'DEPOSIT'
-                }
-            })
+                console.log('Resposta da API:', response.data)
 
-            return res.json(response.data)
+                // Registra a transação no banco
+                await prisma.transaction.create({
+                    data: {
+                        external_id: paymentData.external_reference,
+                        user_id: userId,
+                        amount: amountNumber,
+                        type: 'DEPOSIT'
+                    }
+                })
+
+                return res.json(response.data)
+
+            } catch (axiosError) {
+                console.error('Erro na chamada da API:', {
+                    status: axiosError.response?.status,
+                    data: axiosError.response?.data,
+                    headers: axiosError.response?.headers
+                })
+                throw new Error(`Erro na API: ${axiosError.response?.data?.message || axiosError.message}`)
+            }
 
         } catch (error) {
-            console.error('Erro ao criar pagamento:', error.response?.data || error.message)
+            console.error('Erro ao criar pagamento:', error)
             return res.status(500).json({ 
                 error: 'Erro ao processar pagamento',
-                details: error.response?.data || error.message
+                details: error.message
             })
         }
     }
