@@ -5,6 +5,9 @@ const gatewayController = require('../controllers/gateway.controller')
 // Rota para criar pagamento
 router.post('/deposit', (req, res) => gatewayController.createPayment(req, res))
 
+// Rota para criar saque
+router.post('/withdraw', (req, res) => gatewayController.createWithdraw(req, res))
+
 // Rota para receber callbacks
 router.post('/callback', (req, res) => gatewayController.handleCallback(req, res))
 
