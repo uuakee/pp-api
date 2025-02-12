@@ -69,7 +69,7 @@ class GatewayController {
             const paymentData = {
                 amount: amountNumber,
                 externalRef: `DEP-EP-${Date.now()}`,
-                notification_url: `${process.env.APP_URL}/api/gateway/callback`,
+                postbackUrl: `${process.env.APP_URL}/api/gateway/callback`,
                 paymentMethod: "pix",
                 pix: {
                     expiresInDays: 1
@@ -98,7 +98,7 @@ class GatewayController {
                         quantity: 1,
                         tangible: false
                     }
-                ]
+                ],                
             }
 
             console.log('Enviando requisição para:', `${this.baseUrl}/transactions`)
