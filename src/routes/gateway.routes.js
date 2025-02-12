@@ -6,8 +6,11 @@ const gatewayController = require('../controllers/gateway.controller')
 
 router.post('/deposit', async (req, res) => {
     try {
-        const { amount } = req.body
-        const userId = req.user.id
+        const { amount, userId } = req.body
+
+        if (!userId || !amount) {
+            return res.status(400).json({ error: 'UserId e amount são obrigatórios' })
+        }
 
         const payment = await gatewayController.createDeposit(userId, amount)
         res.json(payment)
