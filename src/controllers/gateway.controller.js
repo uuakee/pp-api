@@ -68,32 +68,35 @@ class GatewayController {
             // Ajustando o payload conforme erro retornado
             const paymentData = {
                 amount: amountNumber,
-                external_reference: `DEP-EP-${Date.now()}`,
+                externalRef: `DEP-EP-${Date.now()}`,
                 notification_url: `${process.env.APP_URL}/api/gateway/callback`,
                 paymentMethod: "pix",
-                installments: 1,
+                pix: {
+                    expiresInDays: 1
+                },
                 customer: {
                     name: `User ${userId}`,
                     phone: user.phone.replace(/\D/g, ''),
                     email: `user${userId}@example.com`,
                     document: {
-                        type: 'CPF',
+                        type: 'cpf',
                         number: cpf
                     }
                 },
                 billingAddress: {
-                    street: 'Rua Exemplo',
-                    number: '123',
+                    street: 'Rua Joaquim Nabuco',
+                    number: '643',
                     district: 'Centro',
                     city: 'São Paulo',
                     state: 'SP',
-                    zipCode: '01001000'
+                    zipCode: '77530000'
                 },
                 items: [
                     {
-                        name: 'Créditos',
-                        amount: amountNumber,
-                        quantity: 1
+                        title: 'Créditos',
+                        unitPrice: amountNumber,
+                        quantity: 1,
+                        tangible: false
                     }
                 ]
             }
