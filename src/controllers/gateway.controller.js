@@ -63,35 +63,36 @@ class GatewayController {
                 return res.status(400).json({ error: 'Valor inválido' })
             }
 
-            // Gera CPF válido
             const cpf = this.#generateCPF()
 
+            // Ajustando o payload conforme erro retornado
             const paymentData = {
-                value: amountNumber,
+                amount: amountNumber,
                 external_reference: `DEP-EP-${Date.now()}`,
                 notification_url: `${process.env.APP_URL}/api/gateway/callback`,
+                paymentMethod: "pix",
+                installments: 1,
                 customer: {
                     name: `User ${userId}`,
-                    phone_number: user.phone.replace(/\D/g, ''),
+                    phone: user.phone.replace(/\D/g, ''),
                     email: `user${userId}@example.com`,
-                    document: cpf,
-                    document_type: 'CPF'  // Especifica o tipo do documento
+                    document: {
+                        type: 'CPF',
+                        number: cpf
+                    }
                 },
-                billing: {
+                billingAddress: {
                     street: 'Rua Exemplo',
                     number: '123',
                     district: 'Centro',
                     city: 'São Paulo',
                     state: 'SP',
-                    postal_code: '01001000'
+                    zipCode: '01001000'
                 },
-                type: "PIX",
-                currency: "BRL",
-                description: `Depósito - User ${userId}`,
                 items: [
                     {
                         name: 'Créditos',
-                        value: amountNumber,
+                        amount: amountNumber,
                         quantity: 1
                     }
                 ]
@@ -116,7 +117,7 @@ class GatewayController {
                     paymentData,
                     {
                         ...config,
-                        validateStatus: false // Para ver todos os status de resposta
+                        validateStatus: false
                     }
                 )
 
