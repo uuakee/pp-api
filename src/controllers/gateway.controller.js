@@ -34,11 +34,29 @@ class GatewayController {
     // Criar uma nova transação de depósito
     async createDeposit(userId, amount) {
         try {
+            // Busca informações do usuário
+            const user = await prisma.user.findUnique({
+                where: {
+                    id: userId
+                },
+                select: {
+                    id: true,
+                    phone: true
+                }
+            })
+
+            if (!user) {
+                throw new Error('Usuário não encontrado')
+            }
+
             // Cria a transação no gateway
             const paymentData = {
                 amount: amount,
                 external_id: `DEP-${userId}-${Date.now()}`,
-                callback_url: `${process.env.APP_URL}/api/gateway/callback`
+                callback_url: `${process.env.APP_URL}/api/gateway/callback`,
+                customer: {
+                    phone: user.phone
+                }
             }
 
             const payment = await this.#makeRequest('/v1/transactions', 'POST', paymentData)
