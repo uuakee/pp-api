@@ -27,9 +27,16 @@ class GatewayController {
                 return res.status(404).json({ error: 'Usuário não encontrado' })
             }
 
+            // Converte amount para número
+            const amountNumber = parseInt(amount)
+            
+            if (isNaN(amountNumber)) {
+                return res.status(400).json({ error: 'Valor inválido' })
+            }
+
             // Monta o payload conforme documentação
             const paymentData = {
-                value: parseInt(amount), // Valor em centavos
+                value: amountNumber, // Valor em centavos já convertido para número
                 external_reference: `DEP-EP-${Date.now()}`,
                 notification_url: `${process.env.APP_URL}/api/gateway/callback`,
                 customer: {
@@ -54,12 +61,12 @@ class GatewayController {
                 config
             )
 
-            // Registra a transação no banco
+            // Registra a transação no banco com o amount como número
             await prisma.transaction.create({
                 data: {
                     external_id: paymentData.external_reference,
                     user_id: userId,
-                    amount: amount,
+                    amount: amountNumber, // Agora é um número
                     type: 'DEPOSIT'
                 }
             })
