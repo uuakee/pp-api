@@ -1,108 +1,58 @@
 // src/controllers/gateway.controller.js
+const axios = require('axios')
+const { PrismaClient } = require('@prisma/client')
+const prisma = new PrismaClient()
 
-
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const { Buffer } = require('buffer')
+require('dotenv').config()
 
 class GatewayController {
     constructor() {
-        if (!process.env.AXIEPAY_URL) {
-            throw new Error('AXIEPAY_URL não configurada')
-        }
         if (!process.env.AXIEPAY_SECRET_KEY) {
             throw new Error('AXIEPAY_SECRET_KEY não configurada')
         }
-
-        this.baseUrl = process.env.AXIEPAY_URL.replace(/\/$/, '')
-        this.secretKey = process.env.AXIEPAY_SECRET_KEY
-        this.timeout = 30000 // 30 segundos de timeout
+        // Cria o token de autenticação conforme documentação
+        this.authToken = Buffer.from(`${process.env.AXIEPAY_SECRET_KEY}:x`).toString('base64')
     }
 
-    // Método auxiliar para fazer requisições autenticadas
-    async #makeRequest(endpoint, method = 'GET', body = null) {
+    async createPayment(req, res) {
         try {
-            const auth = Buffer.from(`${this.secretKey}:x`).toString('base64')
-            
-            const options = {
-                method,
-                headers: {
-                    'Authorization': `Basic ${auth}`,
-                    'Content-Type': 'application/json'
-                },
-                // Adiciona timeout
-                signal: AbortSignal.timeout(this.timeout)
-            }
+            const { amount, userId } = req.body
 
-            if (body) {
-                options.body = JSON.stringify(body)
-            }
-
-            const url = `${this.baseUrl}${endpoint}`
-            console.log('Fazendo requisição para:', url)
-            console.log('Headers:', options.headers)
-            console.log('Body:', options.body)
-            
-            try {
-                const response = await fetch(url, options)
-                console.log('Status:', response.status)
-                const responseText = await response.text()
-                console.log('Response:', responseText)
-
-                return JSON.parse(responseText)
-            } catch (error) {
-                if (error.name === 'TimeoutError' || error.code === 'UND_ERR_CONNECT_TIMEOUT') {
-                    throw new Error('Timeout ao conectar com o gateway de pagamento')
-                }
-                if (error.name === 'AbortError') {
-                    throw new Error('Requisição cancelada por timeout')
-                }
-                throw error
-            }
-
-        } catch (error) {
-            console.error('Erro na requisição:', error)
-            throw new Error(`Erro na requisição: ${error.message}`)
-        }
-    }
-
-    // Criar uma nova transação de depósito
-    async createDeposit(userId, amount) {
-        try {
-            // Busca informações do usuário
             const user = await prisma.user.findUnique({
-                where: {
-                    id: userId
-                },
-                select: {
-                    id: true,
-                    phone: true
-                }
+                where: { id: userId },
+                select: { id: true, phone: true }
             })
 
             if (!user) {
-                throw new Error('Usuário não encontrado')
+                return res.status(404).json({ error: 'Usuário não encontrado' })
             }
 
-            // Verifica se a URL de callback está configurada
-            if (!process.env.APP_URL) {
-                throw new Error('APP_URL não configurada')
-            }
-
-            // Cria a transação no gateway
+            // Monta o payload conforme documentação
             const paymentData = {
-                value: amount,                   // Valor em centavos
-                external_reference: `DEP-${userId}-${Date.now()}`,  // ID externo
-                notification_url: `${process.env.APP_URL}/api/gateway/callback`, // URL de callback
+                value: parseInt(amount), // Valor em centavos
+                external_reference: `DEP-EP-${Date.now()}`,
+                notification_url: `${process.env.APP_URL}/api/gateway/callback`,
                 customer: {
-                    phone_number: user.phone.replace(/\D/g, '')  // Remove não-dígitos do telefone
+                    phone_number: user.phone.replace(/\D/g, ''),
+                    name: `User ${userId}`
                 },
-                type: "PIX"  // Tipo de pagamento
+                type: "PIX"
             }
 
-            console.log('Payment Data:', paymentData)
+            // Configuração do axios conforme documentação
+            const config = {
+                headers: {
+                    'Authorization': `Basic ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
 
-            const payment = await this.#makeRequest('/v1/transactions', 'POST', paymentData)
+            // Faz a requisição para criar a transação
+            const response = await axios.post(
+                `${process.env.AXIEPAY_URL}/v1/transactions`, 
+                paymentData,
+                config
+            )
 
             // Registra a transação no banco
             await prisma.transaction.create({
@@ -114,52 +64,49 @@ class GatewayController {
                 }
             })
 
-            return payment
+            return res.json(response.data)
 
         } catch (error) {
-            console.error('Erro ao criar depósito:', error)
-            if (error.message.includes('timeout')) {
-                throw new Error('Gateway de pagamento indisponível no momento')
-            }
-            throw new Error('Falha ao processar pagamento: ' + error.message)
+            console.error('Erro ao criar pagamento:', error.response?.data || error.message)
+            return res.status(500).json({ 
+                error: 'Erro ao processar pagamento',
+                details: error.response?.data || error.message
+            })
         }
     }
 
-    // Processa o callback do gateway
-    async handleCallback(data) {
+    async handleCallback(req, res) {
         try {
+            const { external_reference, status } = req.body
+
             const transaction = await prisma.transaction.findFirst({
-                where: {
-                    external_id: data.external_id
-                }
+                where: { external_id: external_reference }
             })
 
             if (!transaction) {
-                throw new Error('Transação não encontrada')
+                return res.status(404).json({ error: 'Transação não encontrada' })
             }
 
-            if (data.status === 'approved') {
-                // Atualiza o saldo do usuário
+            if (status === 'approved') {
                 await prisma.user.update({
-                    where: {
-                        id: transaction.user_id
-                    },
+                    where: { id: transaction.user_id },
                     data: {
-                        balance: {
-                            increment: transaction.amount
-                        }
+                        balance: { increment: transaction.amount }
                     }
                 })
             }
 
-            return { success: true }
+            return res.json({ success: true })
 
         } catch (error) {
-            console.error('Erro ao processar callback:', error)
-            throw new Error('Falha ao processar callback')
+            console.error('Erro no callback:', error)
+            return res.status(500).json({ error: 'Erro ao processar callback' })
         }
     }
 }
 
 module.exports = new GatewayController()
+    
 
+    
+    
