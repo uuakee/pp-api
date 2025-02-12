@@ -431,6 +431,20 @@ const getWithdrawals = async (req, res) => {
     }
 };
 
+const getVipPercentage = async (req, res) => {
+    try {
+        const { vipId } = req.params;
+
+        const vip = await prisma.vip.findUnique({
+            where: { id: parseInt(vipId) }
+        });
+
+        res.status(200).json(vip);
+    } catch (error) {
+        console.error('Erro ao buscar porcentagem do VIP:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
 
 module.exports = {
     createUser,
@@ -442,5 +456,6 @@ module.exports = {
     buyPlan,
     getPlansFromUser,
     getDeposits,
-    getWithdrawals
+    getWithdrawals,
+    getVipPercentage
 };
