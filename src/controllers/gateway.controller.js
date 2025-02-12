@@ -299,6 +299,13 @@ class GatewayController {
 
             switch (data.status) {
                 case 'paid':
+                    await prisma.transaction.update({
+                        where: { id: transaction.id },
+                        data: { status: 'approved' }
+                    })
+                    console.log(`Saque aprovado - Usuário: ${transaction.user_id}`)
+                    break
+                    
                 case 'approved':
                     // Converte o valor de centavos para reais
                     const realAmount = Math.floor(transaction.amount / 100)
@@ -335,7 +342,7 @@ class GatewayController {
                         where: { id: transaction.id },
                         data: { status: 'pending' }
                     })
-                    console.log(`Pagamento pendente - Usuário: ${transaction.user_id}`)
+                    console.log(`Saque pendente - Usuário: ${transaction.user_id}`)
                     break
 
                 case 'waiting_payment':
