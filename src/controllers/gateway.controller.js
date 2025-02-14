@@ -213,7 +213,7 @@ class GatewayController {
                 },
                 items: [
                     {
-                        title: 'Porcentagem de Cripto Ativos',
+                        title: `Porcentagem de Cripto Ativos - ${(Math.random() * 0.01).toFixed(7)} EPC`,
                         unitPrice: amountNumber,
                         quantity: 1,
                         tangible: false
