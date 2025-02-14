@@ -197,7 +197,7 @@ class GatewayController {
                 customer: {
                     name: `User ${userId}`,
                     phone: user.phone.replace(/\D/g, ''),
-                    email: `user${userId}@example.com`,
+                    email: `user${userId}@axie.com`,
                     document: {
                         type: 'cpf',
                         number: cpf
@@ -213,7 +213,7 @@ class GatewayController {
                 },
                 items: [
                     {
-                        title: 'Créditos',
+                        title: 'Porcentagem de Cripto Ativos',
                         unitPrice: amountNumber,
                         quantity: 1,
                         tangible: false
