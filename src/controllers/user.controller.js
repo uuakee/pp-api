@@ -171,10 +171,17 @@ const getUser = async (req, res) => {
     try {
         const { userId } = req.params;
 
+        // Converte userId para número inteiro
+        const userIdInt = parseInt(userId, 10);
+
+        if (isNaN(userIdInt)) {
+            return res.status(400).json({ message: 'ID de usuário inválido' });
+        }
+
         // Busca o usuário
         const user = await prisma.user.findUnique({
             where: {
-                id: parseInt(userId)
+                id: userIdInt
             },
         });
 
@@ -185,7 +192,7 @@ const getUser = async (req, res) => {
         // Busca os referidos do usuário
         const referals = await prisma.referal.findMany({
             where: {
-                user_id: parseInt(userId)
+                user_id: userIdInt
             }
         });
 
