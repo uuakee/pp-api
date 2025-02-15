@@ -23,11 +23,8 @@ async function calculateDailyROI() {
 
         // Processa cada plano
         for (const investment of activePlans) {
-            const dailyROI = Number(investment.plan.daily_roi);
-            const investmentAmount = investment.price;
-            
-            // Calcula o rendimento diário
-            const dailyEarning = Math.floor((investmentAmount * dailyROI) / 100);
+            // O daily_roi já é o valor direto que o usuário deve receber
+            const dailyEarning = Number(investment.plan.daily_roi);
 
             console.log(`Usuário ${investment.user_id} - Plano: ${investment.plan.name} - Rendimento: ${dailyEarning}`);
 
@@ -40,6 +37,14 @@ async function calculateDailyROI() {
                     balance: {
                         increment: dailyEarning
                     }
+                }
+            });
+
+            // Salva o registro do rendimento diário
+            await prisma.dailyEarning.create({
+                data: {
+                    user_id: investment.user_id,
+                    amount: dailyEarning
                 }
             });
         }

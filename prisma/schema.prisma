@@ -122,6 +122,16 @@ model Vip {
   @@map("vips")
 }
 
+model dailyEarning {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  amount     Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("daily_earnings")
+}
+
 enum TransactionType {
   DEPOSIT
   WITHDRAWAL
